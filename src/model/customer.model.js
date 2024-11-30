@@ -35,7 +35,16 @@ const customerSchema = new mongoose.Schema({
         type:Number,
         default:0,
         min:0
-    }
+    },
+    transactions:[{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Transaction"
+
+    }],
+    loanApplied:[{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"LoanApplication"
+    }]
 },{timestamps:true});
 const Customer = mongoose.model('Customer',customerSchema);
 export default Customer;

@@ -4,6 +4,8 @@ import { customerLoginValidator, customerRegistrationValidator } from '../valida
 import { validationResult } from "express-validator";
 import { generateToken } from '../utils/jwt.js';
 import logger from '../utils/logger.js';
+import LoanApplication from '../model/loan.modal.js';
+import Transaction from '../model/transaction.modal.js';
 
 export const  register =async(req,res)=>{
     await Promise.all(customerRegistrationValidator.map((validation) => validation.run(req)));
@@ -71,3 +73,129 @@ export const login = async (req, res) => {
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
+
+export const getAccountInfo =async (req,res) =>{
+    try{
+        const customerID= req.user.userId;
+        const user= await Customer.findById(customerID).select('fname lname email phone balance address');
+        if(!user){
+            return res.status(404).json({message:'User not found'});
+        }
+
+        
+        return res.status(200).json({message:"Account info",data:user});
+    }
+    catch(err){
+        console.error(err);
+        return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+
+}
+
+export const performTransation = async(req,res)=>{
+    try {
+        const { transactionType, amount, recipientAccount } = req.body;
+        const customerID = req.user.userId;
+        if (!transactionType || amount <= 0) {
+            return res.status(400).json({ message: "Invalid transaction type or amount." });
+        }
+        const customer = await Customer.findById(customerID);
+        if (!customer) {
+            return res.status(404).json({ message: "Customer not found." });
+        }
+        let newTransaction;
+
+        if (transactionType === 'Deposit') {
+            customer.balance += amount;
+            newTransaction = new Transaction({ transactionType, amount });
+
+        } else if (transactionType === 'Withdrawal') {
+            if (customer.balance < amount) {
+                return res.status(400).json({ message: "Insufficient balance." });
+            }
+            customer.balance -= amount;
+            newTransaction = new Transaction({ transactionType, amount });
+
+        } else if (transactionType === 'Transfer') {
+            if (!recipientAccount) {
+                return res.status(400).json({ message: "Recipient account is required for transfer." });
+            }
+
+            if (customer.balance < amount) {
+                return res.status(400).json({ message: "Insufficient balance for transfer." });
+            }
+
+            const recipient = await Customer.findOne({ email: recipientAccount });
+            if (!recipient) {
+                return res.status(404).json({ message: "Recipient account not found." });
+            }
+
+            customer.balance -= amount;
+            recipient.balance += amount;
+
+            await recipient.save();
+
+            newTransaction = new Transaction({
+                transactionType,
+                amount,
+                recipientAccount,
+            });
+        } else {
+            return res.status(400).json({ message: "Invalid transaction type." });
+        }
+
+        const savedTransaction = await newTransaction.save();
+        customer.transactions.push(savedTransaction._id);
+        await customer.save();
+
+        return res.status(201).json({
+            message: "Transaction successful",
+            data: {
+                transactionType: savedTransaction.transactionType,
+                amount: savedTransaction.amount,
+                recipientAccount: savedTransaction.recipientAccount || null,
+                balance: customer.balance,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: "Server error", error: err.message });
+    }  
+}
+
+export const applyLoan = async(req,res)=>{
+    try{
+        const {loanType,loanAmount} =req.body;
+        const customerID=req.user.userId;
+        const customer= await Customer.findById(customerID);
+        if(!customer){
+            return res.status(404).json({message:'User not found'});
+        }
+        if (loanAmount <= 0) {
+            return res.status(400).json({ message: 'Invalid loan amount. Must be greater than zero.' });
+        }
+        const loanApplication = new LoanApplication({
+            loanAmount,
+            loanType,
+        });
+        const savedLoan = await loanApplication.save();
+        // Update the customer's loanApplied array
+        customer.loanApplied.push(savedLoan._id);
+        await customer.save();
+        return res.status(201).json({
+            message: "Loan application submitted successfully",
+            data: {
+                loanId: savedLoan._id,
+                loanAmount: savedLoan.loanAmount,
+                loanType: savedLoan.loanType,
+                applicationStatus: savedLoan.applicationStatus,
+                appliedOn: savedLoan.appliedOn,
+            },
+        });   
+    }
+    catch(err){
+        console.error(err);
+        return res.status(500).json({ message: 'Server error', error: err.message });
+
+    }
+}
