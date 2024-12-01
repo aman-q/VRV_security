@@ -20,6 +20,17 @@ const loanApplicationSchema = new mongoose.Schema(
             type: Date,
             default: Date.now,
         },
+        decisionDate: {
+            type: Date,
+        },
+        manager: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Manager', 
+        },
+        customer: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Customer',
+        },
     },
     { timestamps: true }
 );
