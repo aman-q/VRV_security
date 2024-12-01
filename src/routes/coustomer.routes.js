@@ -8,11 +8,11 @@ const customerRoutes= express.Router();
 customerRoutes.post('/login-customer',login);
 // Register
 customerRoutes.post('/register-customer',register);
-// Get Account Info
+//Protected Route to Get Account Info
 customerRoutes.get('/getInfo',customerMiddleware,getAccountInfo);
-// Apply For Loan 
+//Protected Route to Apply For Loan 
 customerRoutes.post('/apply-loan',customerMiddleware,applyLoan);
-// Perform Transaction
+//Protected Route to Perform Transaction
 customerRoutes.post('/perform-transation',customerMiddleware,performTransation);
 
 export default customerRoutes;
